@@ -1,0 +1,58 @@
+{
+  "generated_at": "2026-09-26T11:46:01.083Z",
+  "base_url": "http://localhost:3000",
+  "duration_seconds": 5,
+  "concurrency": 10,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/articles",
+      "p50_ms": 230,
+      "p95_ms": 406,
+      "p99_ms": 502,
+      "throughput_rps": 41.6,
+      "total_requests": 208,
+      "error_count": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/tags",
+      "p50_ms": 23,
+      "p95_ms": 43,
+      "p99_ms": 97,
+      "throughput_rps": 365.4,
+      "total_requests": 1827,
+      "error_count": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/articles/my-title-499-hxltyi",
+      "p50_ms": 103,
+      "p95_ms": 205,
+      "p99_ms": 263,
+      "throughput_rps": 90,
+      "total_requests": 450,
+      "error_count": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/profiles/user9",
+      "p50_ms": 34,
+      "p95_ms": 74,
+      "p99_ms": 95,
+      "throughput_rps": 266,
+      "total_requests": 1330,
+      "error_count": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/articles/my-title-499-hxltyi/comments",
+      "p50_ms": 89,
+      "p95_ms": 190,
+      "p99_ms": 392,
+      "throughput_rps": 98,
+      "total_requests": 490,
+      "error_count": 0
+    }
+  ]
+}
