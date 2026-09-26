@@ -216,7 +216,11 @@ Do not claim repository-wide bloat reduction unless the entire repository was an
 
 ## Step 13 — Generate the Optimization Report
 
-Write the final report to `CODETUNER_REPORT.md` using `write_file` with this structure:
+Write the intermediate optimization report to `.codetuner/refactor_report.md` using `write_file`. Create the `.codetuner/` directory first if it does not exist.
+
+**Do NOT create or overwrite the root-level `CODETUNER_REPORT.md`.** That file is owned exclusively by the master `codetuner` skill, which reads `.codetuner/refactor_report.md` when assembling the final report.
+
+Use this structure:
 
 ```markdown
 # CodeTuner Optimization Report
