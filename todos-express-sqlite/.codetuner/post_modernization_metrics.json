@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-09-27T13:16:56.381Z",
+  "base_url": "http://localhost:3000",
+  "duration_seconds": 5,
+  "concurrency": 10,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "p50_ms": 5,
+      "p95_ms": 7,
+      "p99_ms": 8,
+      "throughput_rps": 1816.4,
+      "total_requests": 9082,
+      "error_count": 0
+    },
+    {
+      "method": "GET",
+      "path": "/active",
+      "p50_ms": 5,
+      "p95_ms": 6,
+      "p99_ms": 7,
+      "throughput_rps": 1928,
+      "total_requests": 9640,
+      "error_count": 0
+    },
+    {
+      "method": "GET",
+      "path": "/completed",
+      "p50_ms": 5,
+      "p95_ms": 6,
+      "p99_ms": 7,
+      "throughput_rps": 1995.6,
+      "total_requests": 9978,
+      "error_count": 0
+    }
+  ]
+}
