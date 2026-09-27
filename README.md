@@ -22,7 +22,36 @@ The **CodeTuner VS Code Extension** provides a dedicated sidebar control panel f
 - **Live metrics dashboard** — watches all `.codetuner/*.json` files across the workspace and renders a live comparison table (Method · Path · Baseline p95 · Tuned p95 · Gain %) the moment any metrics file is written. Picks the most recently modified post-optimization result automatically — works with `tuned_metrics.json` (standalone refactor), `post_change_metrics.json`, and `post_modernization_metrics.json` (master workflow).
 - **Workspace config toggles** — each toggle persists to `.vscode/settings.json` under `codetuner.skills.*`.
 
-### Building
+### Install from the GitHub Release
+
+> **Ready to install:** [Download `codetuner-0.1.1.vsix`](https://github.com/laufeyland/IBM-BOB-HACKATHON-ShipFast/releases/download/Extension/codetuner-0.1.1.vsix) from the [CodeTuner Extension v0.1.1 release](https://github.com/laufeyland/IBM-BOB-HACKATHON-ShipFast/releases/tag/Extension). Choose the **`.vsix` asset**, not the source-code ZIP.
+
+1. Open **IBM Bob IDE** and sign in to your Bob account.
+2. Open **Extensions** in the Activity Bar. Select the **⋯** menu, choose **Install from VSIX…**, and pick the downloaded `codetuner-0.1.1.vsix`. Reload the editor if prompted. [IBM documents this VSIX installation route](https://www.ibm.com/docs/en/bobz/3.0.0?topic=z-installing-extension-files).
+3. Open the **project folder you want to improve** in Bob IDE. Select the **CodeTuner** icon in the Activity Bar to open its control panel.
+
+The release asset is already packaged. You do not need to run `npm install` or compile the extension to use it.
+
+### Run with the extension
+
+| What you want | In the CodeTuner sidebar |
+|---|---|
+| **Complete workflow** | Turn **Full Run** on, then click **Run Full Workflow**. This enables the master skill and all four specialist skills in the open project. |
+| **One focused skill** | Leave **Full Run** off, turn on **Benchmark**, **Modernize**, **Review**, or **Refactor**, then click its **Run** button. |
+
+A toggle copies the selected `SKILL.md` into the open project's `.bob/skills/` folder. **Run** opens Bob chat with the matching request, such as `Use the codetuner skill.` Send it if the request is waiting in the chat input. Follow Bob's prompts: the full workflow asks you to approve findings before application-code changes. When benchmark files are available, the sidebar compares baseline and tuned p95 values by route.
+
+> **Workspace tip:** Open the target project as a folder, not just an individual file. The extension uses the first workspace folder for skill injection and metrics. Review needs a baseline; Refactor needs baseline metrics and review findings.
+
+### Run directly in Bob (without the extension)
+
+1. Copy this repository's [`.bob/skills/` folders](https://github.com/laufeyland/IBM-BOB-HACKATHON-ShipFast/tree/main/.bob/skills) into `<your-project>/.bob/skills/`. If your project already has skills, merge the CodeTuner folders into it.
+2. Open `<your-project>` as a workspace folder in IBM Bob IDE.
+3. In Bob chat, send `Use the codetuner skill.` for the complete workflow. For a focused run, name a specialist instead, for example `Use the codetuner-benchmark skill.`
+
+The skills work the same way without the sidebar. Bob writes the context, reports, and metrics into the project; you can inspect those files directly.
+
+### Build from source (optional)
 
 ```bash
 npm run compile   # tsc -p ./  →  out/
