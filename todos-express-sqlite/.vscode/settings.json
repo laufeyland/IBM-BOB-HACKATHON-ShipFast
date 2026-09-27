@@ -1,0 +1,7 @@
+{
+    "codetuner.skills.benchmarkEnabled": true,
+    "codetuner.skills.modernizeEnabled": true,
+    "codetuner.skills.reviewEnabled": true,
+    "codetuner.skills.refactorEnabled": true,
+    "codetuner.skills.codetunerEnabled": true
+}
