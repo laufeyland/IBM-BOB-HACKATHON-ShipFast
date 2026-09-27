@@ -1,0 +1,1 @@
+{"version":3,"file":"checkLogin.js","sourceRoot":"","sources":["checkLogin.ts"],"names":[],"mappings":";;AAAA,MAAM,UAAU,GAAG,CAAC,YAAY,EAAE,EAAE,CAClC,CAAC,CAAC,YAAY;IACd,YAAY,EAAE,WAAW,KAAK,MAAM;IACpC,MAAM,CAAC,IAAI,CAAC,YAAY,CAAC,CAAC,MAAM,KAAK,CAAC,CAAA;kBAEzB,UAAU"}

@@ -35,11 +35,172 @@ If `CONTEXT.md` or `.codetuner/baseline_metrics.json` are already present from a
 
 ---
 
-## Phase 2 — Parallel Analysis
+## Phase 2 — Modernization Analysis
 
-After the baseline is established, launch three focused analysis subagents **in parallel** using `spawn_subagent`. Issue all three `spawn_subagent` calls in the **same turn** so they run concurrently. All three use `name: "explore"` (read-only, no code modifications). Pass `fork_context: false` — each subagent receives its full mandate in the description.
+After the baseline is established, launch one focused analysis subagent using `spawn_subagent`. Use `name: "explore"` (read-only, no code modifications). Pass `fork_context: false` — the subagent receives its full mandate in the description.
 
-Do not proceed to Phase 3 until all three subagents have returned their summaries.
+Do not proceed to Phase 3 until the subagent has returned its summary.
+
+---
+
+### Subagent — Modernization Analyst
+
+```
+name: "explore"
+description: |
+  You are the CodeTuner Modernization Analyst. Your task is read-only analysis only.
+  Do NOT execute any upgrades or modify any file.
+
+  Read the following files for project context:
+  - CONTEXT.md (project root)
+
+  Then inspect dependency manifests and configuration files (package.json,
+  package-lock.json, .nvmrc, pyproject.toml, requirements.txt, Dockerfile, etc.)
+  to identify modernization opportunities.
+
+  Apply the same analysis criteria used by codetuner-modernize Steps 1–5. Inspect:
+  - Runtime version (Node.js, Python, Java, etc.)
+  - Framework versions (Express, NestJS, Django, Spring Boot, etc.)
+  - Major library versions
+  - Database/ORM versions
+  - Build and test tooling versions
+  - Deprecated packages or APIs in use
+  - Legacy patterns that have supported modern replacements
+
+  For each technology, use execute_command to query authoritative current version
+  information at runtime (npm view, PyPI API, nodejs.org/dist index) — do not rely
+  solely on internal model knowledge, which may be stale.
+
+  Determine and record for each:
+  - Current version (from project files)
+  - Latest stable version (verified at execution time)
+  - Latest LTS version where applicable
+  - Recommended migration target (NOT automatically the latest — prioritise LTS,
+    stability, ecosystem compatibility, and low breaking-change surface)
+  - Whether the current version is EOL or has known security issues
+  - Known breaking changes between current and proposed target
+  - Compatibility with the rest of the stack
+
+  For every recommended change, produce a structured entry:
+  - ID: MODERN-001, MODERN-002, …
+  - Technology/dependency: name
+  - Current version/state
+  - Recommended version/state
+  - Reason: why the upgrade is or is not recommended
+  - Compatibility considerations: known breaking changes, migration effort
+  - Expected benefit: security, LTS coverage, performance, DX
+  - Confidence: High / Medium / Low
+  - Risk: LOW / MEDIUM / HIGH
+
+  If version information cannot be independently verified, state:
+  "Latest version could not be independently verified."
+  Never invent a version number. Do not execute any upgrades. Do not modify any file.
+
+  Return your findings as a structured Markdown list using the fields above.
+```
+
+---
+
+### Aggregation after modernization analysis
+
+After the subagent returns:
+
+1. **Collect** the subagent's structured findings.
+2. **Write `.codetuner/modernization_analysis.md`** using `write_file` with the following structure:
+
+```markdown
+# CodeTuner Modernization Analysis
+
+Generated: <ISO-8601 timestamp>
+
+## Modernization Findings
+<MODERN-XXX entries>
+```
+
+Do not proceed to Phase 3 until `.codetuner/modernization_analysis.md` exists.
+
+---
+
+## Phase 3 — Modernization Recommendation Plan and Approval Gate
+
+**Do NOT modify any application code in this phase.**
+
+Synthesise the findings from `.codetuner/modernization_analysis.md` into a recommendation plan presented to the developer.
+
+Produce a Markdown table:
+
+```
+| ID | Category | Finding | Current State | Recommendation | Evidence | Expected Benefit | Risk | Confidence |
+|----|----------|---------|---------------|----------------|----------|------------------|------|------------|
+```
+
+**ID scheme:** `MODERN-001` — use the stable IDs assigned by the subagent. These IDs are referenced by the approval and implementation phases.
+
+**Categories:** `Modernization`
+
+**Risk values:** `LOW` | `MEDIUM` | `HIGH`
+
+Guidelines:
+- Show version transitions clearly (e.g. `Node.js 18 → Node.js 22`).
+- Do not invent findings not grounded in the subagent output.
+
+**STOP. Do not modify any application code until explicit approval is received.**
+
+Ask the developer:
+
+> "CodeTuner has completed its modernization analysis.
+>
+> Please review the modernization recommendations above.
+>
+> You can:
+> 1. Approve all modernization recommendations
+> 2. Approve specific recommendations by ID (e.g. MODERN-001)
+> 3. Reject specific recommendations by ID
+> 4. Request more explanation on any finding
+> 5. Skip modernization entirely and proceed to code analysis
+> 6. Cancel CodeTuner
+>
+> Which recommendations would you like CodeTuner to apply?"
+
+Use `ask_followup_question` for this prompt.
+
+Record the exact approved set. Build and display an approved-plan table:
+
+```
+| ID | Finding | Decision |
+|----|---------|----------|
+| MODERN-001 | Node.js 18 → Node.js 22 | ✅ Approved |
+| MODERN-002 | Express 4 → Express 5 | ❌ Rejected |
+```
+
+Only approved `MODERN-XXX` items proceed to Phase 4. If all items are rejected or skipped, proceed directly to Phase 5.
+
+---
+
+## Phase 4 — Modernization Execution
+
+Apply **only** the approved `MODERN-XXX` recommendations:
+
+- Invoke `codetuner-modernize` using `use_skill` at its Step 7 (process selective approval), passing only the approved `MODERN-XXX` items. The modernize skill handles its own incremental execution loop and per-upgrade validation.
+
+Do not implement unapproved recommendations. Do not combine unrelated changes into a single edit. Prefer small, reviewable, reversible modifications.
+
+After all approved modernization upgrades are applied and validated by the `codetuner-modernize` skill, **re-run the benchmark** to capture a post-modernization baseline before continuing:
+
+- Invoke `codetuner-benchmark` using `use_skill`.
+- Save results to `.codetuner/post_modernization_metrics.json` — **never overwrite** `.codetuner/baseline_metrics.json`.
+
+Do not proceed to Phase 5 until the post-modernization benchmark is saved (or until the developer confirms they want to skip re-benchmarking).
+
+---
+
+## Phase 5 — Code Analysis (on Modernized Codebase)
+
+Now that modernization is complete, launch two focused analysis subagents **in parallel** using `spawn_subagent`. Issue both `spawn_subagent` calls in the **same turn** so they run concurrently. Both use `name: "explore"` (read-only, no code modifications). Pass `fork_context: false` — each subagent receives its full mandate in the description.
+
+These subagents analyse the **already-modernized** codebase, so their findings and recommendations are grounded in the current state of the code rather than the legacy state.
+
+Do not proceed to Phase 6 until both subagents have returned their summaries.
 
 ---
 
@@ -54,6 +215,7 @@ description: |
   Read the following files for project context:
   - CONTEXT.md (project root)
   - .codetuner/baseline_metrics.json
+  - .codetuner/post_modernization_metrics.json (if it exists — use as the current performance baseline)
 
   Then inspect the source files and code paths identified in CONTEXT.md as benchmark
   targets or bottlenecks.
@@ -132,67 +294,9 @@ description: |
 
 ---
 
-### Subagent 3 — Modernization Analyst
+### Aggregation after code analysis
 
-```
-name: "explore"
-description: |
-  You are the CodeTuner Modernization Analyst. Your task is read-only analysis only.
-  Do NOT execute any upgrades or modify any file.
-
-  Read the following files for project context:
-  - CONTEXT.md (project root)
-
-  Then inspect dependency manifests and configuration files (package.json,
-  package-lock.json, .nvmrc, pyproject.toml, requirements.txt, Dockerfile, etc.)
-  to identify modernization opportunities.
-
-  Apply the same analysis criteria used by codetuner-modernize Steps 1–5. Inspect:
-  - Runtime version (Node.js, Python, Java, etc.)
-  - Framework versions (Express, NestJS, Django, Spring Boot, etc.)
-  - Major library versions
-  - Database/ORM versions
-  - Build and test tooling versions
-  - Deprecated packages or APIs in use
-  - Legacy patterns that have supported modern replacements
-
-  For each technology, use execute_command to query authoritative current version
-  information at runtime (npm view, PyPI API, nodejs.org/dist index) — do not rely
-  solely on internal model knowledge, which may be stale.
-
-  Determine and record for each:
-  - Current version (from project files)
-  - Latest stable version (verified at execution time)
-  - Latest LTS version where applicable
-  - Recommended migration target (NOT automatically the latest — prioritise LTS,
-    stability, ecosystem compatibility, and low breaking-change surface)
-  - Whether the current version is EOL or has known security issues
-  - Known breaking changes between current and proposed target
-  - Compatibility with the rest of the stack
-
-  For every recommended change, produce a structured entry:
-  - ID: MODERN-001, MODERN-002, …
-  - Technology/dependency: name
-  - Current version/state
-  - Recommended version/state
-  - Reason: why the upgrade is or is not recommended
-  - Compatibility considerations: known breaking changes, migration effort
-  - Expected benefit: security, LTS coverage, performance, DX
-  - Confidence: High / Medium / Low
-  - Risk: LOW / MEDIUM / HIGH
-
-  If version information cannot be independently verified, state:
-  "Latest version could not be independently verified."
-  Never invent a version number. Do not execute any upgrades. Do not modify any file.
-
-  Return your findings as a structured Markdown list using the fields above.
-```
-
----
-
-### Aggregation after parallel analysis
-
-After all three subagents return:
+After both subagents return:
 
 1. **Collect** each subagent's structured findings.
 2. **Deduplicate** — if two agents identify the same underlying issue, merge into one entry, noting both perspectives.
@@ -213,22 +317,19 @@ Generated: <ISO-8601 timestamp>
 ## Code Quality Findings
 <QUALITY-XXX entries>
 
-## Modernization Findings
-<MODERN-XXX entries>
-
 ## Conflicts and Overlaps
 <any deduplicated or conflicting items with explanation>
 ```
 
-Do not proceed to Phase 3 until `.codetuner/analysis_report.md` exists.
+Do not proceed to Phase 6 until `.codetuner/analysis_report.md` exists.
 
 ---
 
-## Phase 3 — Combined Recommendation Plan
+## Phase 6 — Combined Refactor Recommendation Plan and Approval Gate
 
 **Do NOT modify any application code in this phase.**
 
-Synthesise all findings from `.codetuner/analysis_report.md` into a single recommendation plan presented to the developer.
+Synthesise the findings from `.codetuner/analysis_report.md` into a recommendation plan presented to the developer.
 
 Produce a Markdown table:
 
@@ -237,27 +338,22 @@ Produce a Markdown table:
 |----|----------|---------|---------------|----------------|----------|------------------|------|------------|
 ```
 
-**ID scheme:** `PERF-001`, `QUALITY-001`, `MODERN-001` — use the stable IDs assigned by the subagents. These IDs are referenced by the approval and implementation phases.
+**ID scheme:** `PERF-001`, `QUALITY-001` — use the stable IDs assigned by the subagents. These IDs are referenced by the approval and implementation phases.
 
-**Categories:** `Performance` | `Code Quality` | `Modernization`
+**Categories:** `Performance` | `Code Quality`
 
 **Risk values:** `LOW` | `MEDIUM` | `HIGH`
 
 Guidelines:
-- Show version transitions for modernization items clearly (e.g. `Node.js 18 → Node.js 22`).
 - For each finding, state the affected file or component where applicable.
 - Flag any conflict items with ⚠ and include a brief explanation of both sides.
 - Do not invent findings not grounded in the subagent outputs.
 
----
-
-## Phase 4 — Mandatory Developer Approval Gate
-
 **STOP. Do not modify any application code until explicit approval is received.**
 
-Present the combined recommendation table from Phase 3 and ask the developer:
+Ask the developer:
 
-> "CodeTuner has completed its analysis.
+> "CodeTuner has completed its code analysis on the modernized codebase.
 >
 > Please review the recommendations above.
 >
@@ -278,28 +374,26 @@ Record the exact approved set. Build and display an approved-plan table using th
 | ID | Finding | Decision |
 |----|---------|----------|
 | PERF-001 | N+1 query on GET /api/articles | ✅ Approved |
-| MODERN-002 | Node.js 18 → Node.js 22 | ❌ Rejected |
 | QUALITY-003 | Dead utility functions in utils.js | ✅ Approved |
 ```
 
-Only approved items proceed to Phase 5. Do not touch rejected or skipped items at any point.
+Only approved items proceed to Phase 7. Do not touch rejected or skipped items at any point.
 
 ---
 
-## Phase 5 — Implementation
+## Phase 7 — Refactor Implementation
 
-Apply **only** the approved recommendations, using the appropriate specialized skill for each:
+Apply **only** the approved `PERF-XXX` and `QUALITY-XXX` recommendations:
 
-- **Performance optimizations (`PERF-XXX`) and code-quality refactors (`QUALITY-XXX`)** → invoke `codetuner-refactor` using `use_skill`. Pass the relevant finding ID and affected file/function from `.codetuner/analysis_report.md`. Run it once per approved finding. Each run writes its results to `.codetuner/refactor_report.md`.
-- **Modernization upgrades (`MODERN-XXX`)** → invoke `codetuner-modernize` using `use_skill` at its Step 7 (process selective approval), passing only the approved `MODERN-XXX` items. The modernize skill handles its own incremental execution loop and per-upgrade validation.
+- Invoke `codetuner-refactor` using `use_skill`. Pass the relevant finding ID and affected file/function from `.codetuner/analysis_report.md`. Run it once per approved finding. Each run writes its results to `.codetuner/refactor_report.md`.
 
 Do not implement unapproved recommendations. Do not combine unrelated changes into a single edit. Prefer small, reviewable, reversible modifications.
 
 ---
 
-## Phase 6 — Regression Gate
+## Phase 8 — Regression Gate
 
-This phase runs immediately after all approved changes are applied. It is mandatory. No gate may be skipped.
+This phase runs immediately after all approved changes from Phase 7 are applied. It is mandatory. No gate may be skipped.
 
 A change is **not** successful simply because code was modified or one metric improved. Every approved modification must pass all applicable gates before it can be classified as successful. **A change that improves performance but breaks existing functionality is a REGRESSION, not a success.**
 
@@ -441,11 +535,11 @@ Generated: <ISO-8601 timestamp>
 <List of any changes rolled back, the reason, and whether rollback was automatic or manual>
 ```
 
-Do not proceed to Phase 7 until `.codetuner/regression_report.md` exists.
+Do not proceed to Phase 9 until `.codetuner/regression_report.md` exists.
 
 ---
 
-## Phase 7 — Before vs After Comparison
+## Phase 9 — Before vs After Comparison
 
 Compare `.codetuner/baseline_metrics.json` against `.codetuner/post_change_metrics.json`.
 
@@ -473,7 +567,7 @@ Never describe a regression as an improvement. Never invent a measurement.
 
 ---
 
-## Phase 8 — Final Report
+## Phase 10 — Final Report
 
 Write `CODETUNER_REPORT.md` to the project root using `write_file`. This file is owned by the master `codetuner` skill and represents the complete record of this run.
 
@@ -490,19 +584,31 @@ Generated: <ISO-8601 timestamp>
 ## 2. Initial Baseline
 <summary of benchmark results from .codetuner/baseline_metrics.json>
 
-## 3. Problems Detected
-<combined list of findings from .codetuner/analysis_report.md — sourced from the three parallel analysis subagents>
+## 3. Modernization Findings
+<findings from .codetuner/modernization_analysis.md>
 
-## 4. Recommendations Presented
-<the full recommendation table from Phase 3>
+## 4. Modernization Decisions
+<exact record of approvals and rejections from Phase 3>
 
-## 5. Developer Decisions
-<exact record of approvals and rejections from Phase 4>
+## 5. Modernization Changes Applied
+<what was changed, which files, which skill applied it — sourced from MODERNIZATION_PLAN.md; cross-reference approved MODERN-XXX IDs>
 
-## 6. Changes Applied
-<what was changed, which files, which skill applied it — sourced from .codetuner/refactor_report.md and MODERNIZATION_PLAN.md; cross-reference approved finding IDs from .codetuner/analysis_report.md>
+## 6. Post-Modernization Baseline
+<summary of benchmark results from .codetuner/post_modernization_metrics.json, or "Not measured" if skipped>
 
-## 7. Change Classification
+## 7. Code Analysis Findings (on Modernized Codebase)
+<combined list of findings from .codetuner/analysis_report.md — sourced from the two parallel analysis subagents>
+
+## 8. Refactor Recommendations Presented
+<the full recommendation table from Phase 6>
+
+## 9. Refactor Developer Decisions
+<exact record of approvals and rejections from Phase 6>
+
+## 10. Refactor Changes Applied
+<what was changed, which files, which skill applied it — sourced from .codetuner/refactor_report.md; cross-reference approved finding IDs>
+
+## 11. Change Classification
 <sourced from .codetuner/regression_report.md>
 
 Summary table:
@@ -515,26 +621,26 @@ Regressions: <count — if > 0, do NOT claim overall success>
 No measurable improvement: <count>
 Not verified: <count>
 
-## 8. Regression Details
+## 12. Regression Details
 <For every REGRESSION entry: the exact error, which approved change caused it, correction attempted, outcome (ROLLED BACK / UNRESOLVED)>
 <If no regressions: "None.">
 
-## 9. Before vs After Benchmark
-<the comparison table from Phase 7>
+## 13. Before vs After Benchmark
+<the comparison table from Phase 9>
 
-## 10. Final Measurable Impact
+## 14. Final Measurable Impact
 <evidence-based summary only — what actually improved, did not change, or regressed>
 
 If any regressions remain unresolved, this section must begin with:
 
-> ⚠ CodeTuner completed with unresolved regressions. See Section 8 for details.
+> ⚠ CodeTuner completed with unresolved regressions. See Section 12 for details.
 
 Do NOT write "CodeTuner successfully optimized the application" if unresolved regressions remain.
 
-## 11. Files Changed
+## 15. Files Changed
 <list of modified files, with rollback status where applicable>
 
-## 12. Suggested Next Steps
+## 16. Suggested Next Steps
 <next highest-priority findings not yet addressed; recommended follow-up CodeTuner run>
 ```
 
@@ -544,10 +650,10 @@ The report must be evidence-based. Do not claim that CodeTuner improved performa
 
 ## Safety Rules
 
-- Never modify application code before developer approval (Phase 4).
-- Never overwrite `.codetuner/baseline_metrics.json` — post-change results go to `.codetuner/post_change_metrics.json`.
-- Never allow any analysis subagent to modify application code — all three use `name: "explore"` and are read-only.
-- `.codetuner/analysis_report.md` is an intermediate artifact; it is consumed by the master skill and included in the final report.
+- Never modify application code before developer approval (Phase 3 and Phase 6).
+- Never overwrite `.codetuner/baseline_metrics.json` — post-change results go to `.codetuner/post_change_metrics.json`; post-modernization results go to `.codetuner/post_modernization_metrics.json`.
+- Never allow any analysis subagent to modify application code — all subagents use `name: "explore"` and are read-only.
+- `.codetuner/modernization_analysis.md` and `.codetuner/analysis_report.md` are intermediate artifacts; they are consumed by the master skill and included in the final report.
 - Never fabricate benchmark numbers or test results.
 - Never hide regressions or rolled-back changes.
 - Never hide failing tests — not even behind new tests added by CodeTuner.

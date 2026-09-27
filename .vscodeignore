@@ -1,0 +1,12 @@
+.vscode/**
+.vscode-test/**
+src/**
+bob_sessions/**
+node-express-sequelize-nextjs-realworld-example-app/**
+realworld-example-app-Refactored/**
+node_modules/**
+tsconfig.json
+codetuner-panel-plan.md
+*.vsix
+.gitignore
+release

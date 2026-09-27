@@ -1,0 +1,79 @@
+{
+  "name": "codetuner",
+  "displayName": "CodeTuner",
+  "description": "Control panel for CodeTuner skills — benchmark, review, modernize, and refactor your codebase from the sidebar.",
+  "version": "0.1.1",
+  "publisher": "shipfast",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codetuner-sidebar",
+          "title": "CodeTuner",
+          "icon": "media/zap.svg"
+        }
+      ]
+    },
+    "views": {
+      "codetuner-sidebar": [
+        {
+          "type": "webview",
+          "id": "codetunerControlPanel",
+          "name": "Control Panel"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CodeTuner Skills",
+      "properties": {
+        "codetuner.skills.codetunerEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the master codetuner skill (full end-to-end workflow)."
+        },
+        "codetuner.skills.benchmarkEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the codetuner-benchmark skill."
+        },
+        "codetuner.skills.reviewEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the codetuner-review skill."
+        },
+        "codetuner.skills.modernizeEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the codetuner-modernize skill."
+        },
+        "codetuner.skills.refactorEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the codetuner-refactor skill."
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/vscode": "^1.90.0",
+    "ts-loader": "^9.6.2",
+    "typescript": "^5.0.0",
+    "webpack": "^5.111.1",
+    "webpack-cli": "^7.2.3"
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  }
+}

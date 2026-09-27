@@ -2,7 +2,7 @@
 
 ### Measure. Analyze. Improve. Prove it.
 
-**CodeTuner** turns AI-assisted code optimization and modernization into a measurable, developer-controlled workflow — with real baselines, parallel analysis, a mandatory approval gate, and a regression gate that rejects any change that breaks the application.
+**CodeTuner** is a VS Code extension and a set of IBM Bob 2.0 skills that turn AI-assisted code optimization into a measurable, developer-controlled workflow — with real baselines, parallel analysis, a mandatory approval gate, and a regression gate that rejects any change that breaks the application.
 
 ![IBM Bob 2.0](https://img.shields.io/badge/IBM%20Bob-2.0-0f62fe?style=flat-square)
 ![Hackathon](https://img.shields.io/badge/IBM%20BOB%20Hackathon-ShipFast-a56eff?style=flat-square)
@@ -10,191 +10,170 @@
 
 ---
 
-## 🚀 Real Results
+## The Extension
 
-Demonstrated on the [RealWorld](https://github.com/gothinkster/realworld) Node.js + Express + Sequelize app — a realistic production-style codebase.
+The **CodeTuner VS Code Extension** provides a dedicated sidebar control panel for all five skills. Open the CodeTuner panel in the Activity Bar and manage your entire optimization workflow without leaving the editor.
 
-| Metric | Before | After | Change |
-|--------|-------:|------:|-------:|
-| `GET /api/articles` p50 latency | 618 ms | 230 ms | ↓ 62.8% |
-| p95 latency | 902 ms | 406 ms | ↓ 55.0% |
-| Throughput | 16.0 RPS | 41.6 RPS | ↑ 160% |
-| DB queries / 20-article page | ~41 | ~2 | ↓ ~95% (est.) |
-| Tests passing | 4 / 4 | 4 / 4 | No regression |
+### What the sidebar does
 
-**Result: `ACCEPTED`** — two N+1 query patterns eliminated in a two-file change. All tests pass.
+- **Injects and removes skills** — toggling a skill ON copies its `SKILL.md` into your workspace's `.bob/skills/` directory so Bob picks it up immediately. Toggling OFF removes it cleanly.
+- **Master toggle cascades** — enabling **Full Run** automatically enables and locks all four sub-skills. Disable it to unlock individual skill selection.
+- **Runs skills via chat** — clicking **Run** fires `workbench.action.chat.open` with the correct skill query, landing the session directly in Bob's native chat history.
+- **Live metrics dashboard** — watches all `.codetuner/*.json` files across the workspace and renders a live comparison table (Method · Path · Baseline p95 · Tuned p95 · Gain %) the moment any metrics file is written. Picks the most recently modified post-optimization result automatically — works with `tuned_metrics.json` (standalone refactor), `post_change_metrics.json`, and `post_modernization_metrics.json` (master workflow).
+- **Workspace config toggles** — each toggle persists to `.vscode/settings.json` under `codetuner.skills.*`.
 
-> Full details: [`realworld-example-app-Refactored/refactor_report.md`](realworld-example-app-Refactored/refactor_report.md)
+### Building
 
----
-
-## The Problem
-
-Asking an AI to "optimize my code" is easy. Trusting the result is not.
-
-Four hard questions go unanswered every time:
-
-1. **What should change?** — Without structured analysis, recommendations are guesses, not findings.
-2. **Is it safe?** — Nothing prevents a "faster" function from quietly breaking three tests.
-3. **Did it actually improve?** — Before/after numbers are evidence. Intuition is not.
-4. **Is the recommendation grounded in the code?** — A finding without a file, a line, and a correlated benchmark metric is noise.
-
-The failure mode is predictable: a developer applies an AI suggestion, ships it, and discovers the problem later — or never.
+```bash
+npm run compile   # tsc -p ./  →  out/
+```
 
 ---
 
-## The Solution
+## The Skills
 
-CodeTuner wraps AI analysis in a structured workflow that requires evidence at every step.
+Five IBM Bob 2.0 skills compose the system. Each works standalone; **CodeTuner** (master) orchestrates all of them.
+
+| Skill | Role |
+|-------|------|
+| `codetuner` | **Master orchestrator** — runs all phases, enforces the approval gate, owns the final report |
+| `codetuner-benchmark` | Project discovery, `CONTEXT.md`, self-contained benchmark script, `baseline_metrics.json` |
+| `codetuner-modernize` | Detects outdated dependencies, researches live registry versions, requires approval before any upgrade |
+| `codetuner-review` | Source-code analysis correlated with benchmark hot paths; writes `review_report.md` |
+| `codetuner-refactor` | Applies one approved optimization, verifies with tests, reruns benchmark, writes `refactor_report.md` |
+
+Skills live in `.bob/skills/` and are loaded by Bob automatically when present in the workspace.
+
+```
+.bob/skills/
+├── codetuner/SKILL.md              # Master orchestration skill
+├── codetuner-benchmark/SKILL.md    # Discovery + benchmark generation
+├── codetuner-modernize/SKILL.md    # Stack modernization workflow
+├── codetuner-review/SKILL.md       # Performance + quality analysis
+└── codetuner-refactor/SKILL.md     # Targeted optimization + validation
+```
+
+---
+
+## The Workflow
 
 ```
 Existing Codebase
-  → Baseline benchmark (measured before anything changes)
-  → Parallel analysis (Performance · Code Quality · Modernization)
-  → Recommendation plan (finding IDs, evidence, risk, expected benefit)
-  → Developer approval (nothing changes until you say so, by ID)
-  → Implementation (only approved findings, one at a time)
-  → Regression gate (Build → Tests → Functional → Benchmark)
-  → Before vs After comparison (measured evidence only)
+  → Baseline benchmark        (measured before anything changes)
+  → Stack modernization       (dependencies upgraded with approval)
+  → Parallel analysis         (Performance · Code Quality · Modernization)
+  → Recommendation plan       (finding IDs, evidence, risk, expected benefit)
+  → Developer approval        (nothing changes until you say so, by ID)
+  → Implementation            (only approved findings, one at a time)
+  → Regression gate           (Build → Tests → Functional → Benchmark)
+  → Before vs After           (measured evidence only)
   → Final report
 ```
 
 > **Performance without correctness is not an improvement.**
 
----
+A key design decision made during development (task 09): **Review runs after Modernize**, not before. This ensures the refactor phase operates on already-modernized code rather than applying optimizations to a legacy dependency tree that is about to change.
 
-## Architecture
+### Architecture
 
 ```mermaid
 flowchart TD
-    A([Developer: /codetuner]) --> B[Phase 1 — Baseline\ncodetuner-benchmark\nCONTEXT.md · baseline_metrics.json]
+    A([Developer runs CodeTuner]) --> B[Phase 1 — Baseline\ncodetuner-benchmark\nCONTEXT.md · baseline_metrics.json]
 
-    B --> C{Phase 2 — Parallel Analysis\nthree read-only subagents}
+    B --> C[Phase 2 — Modernize\ncodetuner-modernize\nApproval gate before any upgrade]
 
-    C --> D[Performance Analyst\nPERF-001, PERF-002 …]
-    C --> E[Code Quality Analyst\nQUALITY-001, QUALITY-002 …]
-    C --> F[Modernization Analyst\nMODERN-001, MODERN-002 …]
+    C --> D{Phase 3 — Parallel Analysis\nthree read-only subagents}
 
-    D --> G[Aggregation\ndeduplicate · flag conflicts\nanalysis_report.md]
-    E --> G
-    F --> G
+    D --> E[Performance Analyst\nPERF-001, PERF-002 ...]
+    D --> F[Code Quality Analyst\nQUALITY-001, QUALITY-002 ...]
+    D --> G[Modernization Analyst\nMODERN-001, MODERN-002 ...]
 
-    G --> H[Phase 3 — Recommendation Plan\nIDs · evidence · risk · expected benefit]
-    H --> I{Phase 4 — Approval Gate\nDeveloper approves or rejects by ID\nNO CODE CHANGED YET}
+    E --> H[Aggregation\ndeduplicate · flag conflicts\nanalysis_report.md]
+    F --> H
+    G --> H
 
-    I -->|Approved set| J[Phase 5 — Implementation\ncodetuner-refactor · codetuner-modernize]
+    H --> I[Phase 4 — Recommendation Plan\nIDs · evidence · risk · expected benefit]
+    I --> J{Phase 5 — Approval Gate\nDeveloper approves or rejects by ID\nNO CODE CHANGED YET}
 
-    J --> K[Phase 6 — Regression Gate]
-    K --> K1[Gate 1: Build]
-    K1 --> K2[Gate 2: Tests]
-    K2 --> K3[Gate 3: Functional Validation]
-    K3 --> K4[Gate 4: Post-Change Benchmark]
+    J -->|Approved set| K[Phase 6 — Implementation\ncodetuner-refactor]
 
-    K4 --> L[Phase 7 — Before vs After]
-    L --> M[Phase 8 — CODETUNER_REPORT.md]
+    K --> L[Phase 7 — Regression Gate]
+    L --> L1[Gate 1: Build]
+    L1 --> L2[Gate 2: Tests]
+    L2 --> L3[Gate 3: Functional Validation]
+    L3 --> L4[Gate 4: Post-Change Benchmark]
 
-    K1 & K2 & K3 & K4 -->|REGRESSION| N[Rollback Protocol]
-    N --> M
+    L4 --> M[Phase 8 — Before vs After]
+    M --> N[Phase 9 — CODETUNER_REPORT.md]
+
+    L1 & L2 & L3 & L4 -->|REGRESSION| O[Rollback Protocol]
+    O --> N
 ```
-
----
-
-## CodeTuner Skills
-
-Five IBM Bob skills compose the system. Each can be used standalone; `/codetuner` orchestrates all of them.
-
-| Skill | Role |
-|-------|------|
-| `codetuner` | **Master orchestrator** — runs all 8 phases, enforces the approval gate, owns the final report |
-| `codetuner-benchmark` | Project discovery, `CONTEXT.md`, benchmark script generation, `baseline_metrics.json` |
-| `codetuner-review` | Targeted source-code analysis correlated with benchmark hot paths; writes `review_report.md` |
-| `codetuner-refactor` | Applies one approved optimization, verifies with tests, reruns the benchmark, writes `refactor_report.md` |
-| `codetuner-modernize` | Detects outdated dependencies, researches live registry versions, requires approval before any upgrade |
-
-A developer can run `codetuner-benchmark` + `codetuner-review` to get a ranked, evidence-backed performance report without touching a single line of code.
 
 ---
 
 ## Human-in-the-Loop Safety
 
-### Finding IDs and traceability
+### Finding IDs
 
-Every finding gets a stable ID the moment it is discovered. That ID follows it through every phase.
+Every finding gets a stable ID the moment it is discovered:
 
 | ID prefix | Source | Scope |
 |-----------|--------|-------|
-| `PERF-001` … | Performance Analyst subagent (master workflow) | N+1 queries, blocking hot paths, unbounded queries |
-| `QUALITY-001` … | Code Quality Analyst subagent (master workflow) | Dead code, duplication, structural waste |
-| `MODERN-001` … | Modernization Analyst subagent (master workflow) | EOL runtimes, outdated packages |
-| `CT-001` … | `codetuner-review` standalone skill | All of the above, from a single focused run |
-
-```
-Discovery → Recommendation Plan → Approval → Implementation → Regression Gate → Final Report
-```
+| `PERF-001` … | Performance Analyst subagent | N+1 queries, blocking hot paths, unbounded queries |
+| `QUALITY-001` … | Code Quality Analyst subagent | Dead code, duplication, structural waste |
+| `MODERN-001` … | Modernization Analyst subagent | EOL runtimes, outdated packages |
+| `CT-001` … | `codetuner-review` standalone | All of the above, from a single focused run |
 
 ### Approval gate
 
 **CodeTuner never modifies application code before explicit developer approval.**
 
-After the recommendation plan is presented, the developer approves or rejects each finding by ID:
-
 ```
 Approve PERF-001 and QUALITY-001. Reject MODERN-001 for now.
 ```
 
-| ID | Finding | Decision |
-|----|---------|----------|
-| PERF-001 | N+1 query on `GET /api/articles` | ✅ Approved |
-| QUALITY-001 | Duplicate favorite/unfavorite handlers | ✅ Approved |
-| MODERN-001 | Node.js 14 → Node.js 22 LTS | ❌ Rejected |
-
-Rejected items are never touched — not during this run, not during regression handling, not at any later point.
-
 ### Regression gate
-
-Every approved change must pass four sequential gates before it can be classified as successful:
 
 | Gate | Check |
 |------|-------|
 | 1 — Build | Type-check / compile passes |
 | 2 — Tests | No previously passing test now fails |
-| 3 — Functional | Smoke tests / health endpoints pass (or `NOT_VERIFIED` if unavailable) |
+| 3 — Functional | Smoke tests / health endpoints pass |
 | 4 — Benchmark | Post-change metrics measured and compared to baseline |
-
-**Classifications:**
 
 | Label | Meaning |
 |-------|---------|
 | `ACCEPTED` | All gates pass, target metric improves |
-| `REGRESSION` | A previously passing build, test, or functional check now fails |
-| `NO_MEASURABLE_IMPROVEMENT` | Functionality intact; target metric did not improve |
+| `REGRESSION` | A previously passing check now fails |
+| `NO_MEASURABLE_IMPROVEMENT` | Functionality intact; metric did not improve |
 | `NOT_VERIFIED` | Insufficient evidence — never promoted to `ACCEPTED` |
-
-```
-Before:  p50 500 ms   Tests: 42/42 ✅
-After:   p50 250 ms   Tests: 37/42 ❌
-
-Result: REGRESSION — not a successful optimization.
-```
-
-When a regression is detected, CodeTuner attempts one targeted correction within the approved scope. If unresolved, it proposes a rollback and documents the failure honestly. It never hides a failing test or claims success while regressions remain.
 
 ---
 
-## Real-World Demo
+## IBM Bob 2.0 Integration
 
-### The demo project
+| Bob capability | How CodeTuner uses it |
+|----------------|----------------------|
+| **Skills** | Each phase is a structured Bob skill in `.bob/skills/`. The master `codetuner` skill orchestrates the others via `use_skill` without reimplementing their logic. |
+| **Parallel subagents** | Phase 3 launches three concurrent read-only subagents via `spawn_subagent` in the same turn. The `"explore"` type enforces read-only — no subagent can modify code. |
+| **Repository understanding** | Before generating the benchmark script, Bob inspects routes, models, middleware, and entry points across the entire project without developer guidance. |
+| **Command execution** | The regression gate runs the real build, test suite, and benchmark via `execute_command`. Results are hard gate criteria, not suggestions. |
+| **Developer interaction** | The approval gate uses `ask_followup_question` to pause the workflow. Nothing proceeds until the developer responds with finding IDs. |
+| **Surgical code modification** | `codetuner-refactor` uses `apply_diff` to make the smallest possible targeted change — constrained to the approved finding's files and functions only. |
+| **Evidence discipline** | Skill instructions explicitly prohibit inventing benchmark numbers, hiding regressions, or promoting `NOT_VERIFIED` to `ACCEPTED`. |
 
-| | Path |
-|--|------|
-| **Original** | [`node-express-sequelize-nextjs-realworld-example-app/`](node-express-sequelize-nextjs-realworld-example-app/) |
-| **Post-optimization** | [`realworld-example-app-Refactored/`](realworld-example-app-Refactored/) |
+---
 
-The demo was run using the **standalone skills** (`codetuner-benchmark` → `codetuner-review` → `codetuner-refactor`), not the full `/codetuner` master orchestration.
+## Demo Results
 
-### What the benchmark found
+The skills were validated on a real production-style Node.js codebase:
 
-`GET /api/articles` was **36× slower** than every other endpoint:
+> **Original repo:** https://github.com/cirosantilli/node-express-sequelize-nextjs-realworld-example-app
+
+The standalone skill chain (`codetuner-benchmark` → `codetuner-review` → `codetuner-refactor`) was run against it. `GET /api/articles` was **36× slower** than every other endpoint — a classic N+1 problem.
+
+### Baseline (20-article dataset)
 
 | Route | p50 | p95 | RPS |
 |-------|----:|----:|----:|
@@ -204,30 +183,32 @@ The demo was run using the **standalone skills** (`codetuner-benchmark` → `cod
 | `GET /api/tags` | 3 ms | 5 ms | 2,922 |
 | `GET /api/profiles/:username` | 3 ms | 5 ms | 3,042 |
 
-### What `codetuner-review` found
-
-9 findings across 1,253 analyzed lines. Top ranked:
+`codetuner-review` found **9 findings** across 1,253 analyzed lines. Top two approved:
 
 | ID | Severity | Root cause |
-|----|----------|-----------|
-| CT-001 | **Critical** | `countFavoritedBy()` called per article in list — 20 extra `COUNT(*)` queries per page |
-| CT-002 | High | `getTags()` called per article despite available JOIN — 20 more queries per page |
-| CT-003 | Medium | Double author lookup in `GET /api/articles/:slug` |
-| CT-004 | Medium | N+1 `hasFollow` per comment in comment list |
-| CT-005–009 | Low | Unbounded query, redundant Promise, dead code, duplicate handlers |
+|----|----------|------------|
+| CT-001 | **Critical** | `countFavoritedBy()` called per article — 20 extra `COUNT(*)` per page |
+| CT-002 | **High** | `getTags()` called per article despite available JOIN — 20 more queries per page |
 
-**Estimated code bloat (analyzed scope): ~6%** — 75 of 1,253 lines.
+`codetuner-refactor` applied both as a pair (same two files, same query path):
 
-### What `codetuner-refactor` applied
+- Always include tag association in `Article.findAndCountAll`
+- Add a `sequelize.literal(...)` subquery for `favoritesCount` — computed once per page
+- Pass both pre-computed values into `toJson` — `countFavoritedBy()` and `getTags()` are never called on the list path
 
-CT-001 and CT-002 were approved together (the review report recommended fixing them as a pair — same two files, same query).
+### After (500-article dataset — harder conditions)
 
-**The fix:**
-- Always include the tag association in `Article.findAndCountAll` (removed the conditional guard)
-- Added a `sequelize.literal(...)` subquery for `favoritesCount` — computed once per page inside the list query
-- Passed both pre-computed values into `toJson`, so `countFavoritedBy()` and `getTags()` are never called on a list path
+| Route | Baseline p50 | Tuned p50 | Baseline p95 | Tuned p95 | p95 Gain |
+|-------|------------:|----------:|-------------:|----------:|--------:|
+| `GET /api/articles` | 618 ms | **230 ms** | 902 ms | **406 ms** | **↓ 55%** |
+| `GET /api/articles/:slug` | 17 ms | 103 ms | 20 ms | 205 ms | larger dataset |
+| `GET /api/articles/:slug/comments` | 50 ms | 89 ms | 64 ms | 190 ms | larger dataset |
+| `GET /api/tags` | 3 ms | 23 ms | 5 ms | 43 ms | larger dataset |
+| `GET /api/profiles/:username` | 3 ms | 34 ms | 5 ms | 74 ms | larger dataset |
 
-**Result:**
+> The tuned benchmark ran against ~500 articles vs ~20 at baseline. All routes show higher absolute latency under the heavier load — but `GET /api/articles` dropped from 618 ms to 230 ms p50 **despite 25× more data**. The N+1 pattern amplifies with dataset size, so the actual improvement on an equivalent dataset is at minimum as large.
+
+**`GET /api/articles` summary:**
 
 | Metric | Before | After | Change |
 |--------|-------:|------:|-------:|
@@ -236,64 +217,9 @@ CT-001 and CT-002 were approved together (the review report recommended fixing t
 | p99 latency | 904 ms | 502 ms | ↓ 44.5% |
 | Throughput | 16.0 RPS | 41.6 RPS | ↑ 160% |
 | DB queries / page | ~41 | ~2 | ↓ ~95% (est.) |
-| Tests | 4 / 4 | 4 / 4 | No regression |
+| Tests passing | 4 / 4 | 4 / 4 | No regression |
 
 **Classification: `ACCEPTED`**
-
-> Note: the tuned benchmark ran against a larger dataset (~500 articles vs ~20 at baseline). The N+1 problem is worse at larger dataset sizes, so the improvement on an equivalent dataset would be at minimum as large.
-
----
-
-## Getting Started
-
-**Prerequisites:** IBM Bob 2.0 installed. CodeTuner skills are in `.bob/skills/` — no installation required if you cloned this repo.
-
-### Full workflow (one command)
-
-Open your project in IBM Bob and run:
-
-```
-/codetuner
-```
-
-The master skill orchestrates all eight phases. It will stop and ask for your approval before modifying anything.
-
-### Individual skills (focused tasks)
-
-| Goal | Skill |
-|------|-------|
-| Baseline metrics only | `codetuner-benchmark` |
-| Performance review only | `codetuner-review` (requires benchmark first) |
-| Apply one optimization | `codetuner-refactor` (requires review first) |
-| Dependency audit | `codetuner-modernize` |
-
-### Benchmark execution note
-
-`codetuner-benchmark` **generates** a self-contained `benchmark.js` script and then stops. The developer runs it manually:
-
-```bash
-node benchmark.js
-```
-
-The script handles server startup, seed data, benchmarking, and cleanup autonomously — no arguments or environment variables needed. It writes results to `.codetuner/baseline_metrics.json`. The master `/codetuner` workflow then picks up from that file.
-
-> The same applies when the regression gate re-benchmarks after a change: the master skill re-invokes `codetuner-benchmark` to generate and run the post-change benchmark.
-
----
-
-## IBM Bob 2.0 Integration
-
-CodeTuner is a developer workflow **built on IBM Bob** — not an application that used Bob to generate code.
-
-| Bob capability | How CodeTuner uses it |
-|----------------|----------------------|
-| **Skills** | Each phase is a structured Bob skill in `.bob/skills/`. The master `codetuner` skill orchestrates the others via `use_skill` without reimplementing their logic. |
-| **Parallel subagents** | Phase 2 launches three concurrent read-only subagents via `spawn_subagent` in the same turn. The `"explore"` type enforces read-only — no subagent can modify code regardless of what it finds. |
-| **Repository understanding** | Before generating the benchmark script, Bob inspects routes, models, middleware, and entry points across the entire project without developer guidance. |
-| **Command execution** | The regression gate runs the real build, test suite, and benchmark via `execute_command`. Results are hard gate criteria, not suggestions. |
-| **Developer interaction** | The approval gate uses `ask_followup_question` to pause the workflow. Nothing proceeds until the developer explicitly responds with finding IDs. |
-| **Surgical code modification** | `codetuner-refactor` uses `apply_diff` to make the smallest possible targeted change — constrained to the approved finding's files and functions only. |
-| **Evidence discipline** | Skill instructions explicitly prohibit inventing benchmark numbers, hiding regressions, claiming success while failures remain, or promoting `NOT_VERIFIED` to `ACCEPTED`. These constraints are enforced in the skill text itself. |
 
 ---
 
@@ -303,92 +229,45 @@ CodeTuner is a developer workflow **built on IBM Bob** — not an application th
 <summary>Full artifact tree</summary>
 
 ```
-<your-project>/
-├── CONTEXT.md                       # Architecture map: routes, models, middleware, entry point
-├── benchmark.js                     # Generated zero-interaction benchmark script
-├── MODERNIZATION_PLAN.md            # Written by codetuner-modernize after upgrade approval
-├── CODETUNER_REPORT.md              # Final master report (full /codetuner run only)
+IBM-BOB-HACKATHON-ShipFast/
+├── CONTEXT.md                          # Architecture map: routes, models, middleware, entry point
+├── benchmark.js                        # Generated zero-interaction benchmark script
+├── MODERNIZATION_PLAN.md               # Written by codetuner-modernize after upgrade approval
+├── CODETUNER_REPORT.md                 # Final master report (full codetuner run only)
 │
 └── .codetuner/
-    ├── baseline_metrics.json        # Original benchmark — never overwritten
-    ├── baseline_metrics.backup.json # Safety copy made before re-benchmarking
-    ├── analysis_report.md           # Aggregated subagent findings (master workflow)
-    ├── review_report.md             # Standalone codetuner-review output
-    ├── refactor_report.md           # Per-optimization before/after report
-    ├── regression_report.md         # Gate results and rollback log (master workflow)
-    ├── tuned_metrics.json           # Post-optimization benchmark (codetuner-refactor)
-    └── post_change_metrics.json     # Post-change benchmark (master workflow)
+    ├── baseline_metrics.json           # Original benchmark — never overwritten
+    ├── baseline_metrics.backup.json    # Safety copy made before re-benchmarking
+    ├── analysis_report.md              # Aggregated subagent findings (master workflow)
+    ├── review_report.md                # Standalone codetuner-review output
+    ├── refactor_report.md              # Per-optimization before/after report
+    ├── regression_report.md            # Gate results and rollback log (master workflow)
+    ├── tuned_metrics.json              # Post-optimization benchmark (codetuner-refactor)
+    ├── post_change_metrics.json        # Post-change benchmark (master workflow)
+    └── post_modernization_metrics.json # Post-modernize benchmark (master workflow)
 ```
-
-**What exists in this repo today** (from the standalone skill demo):
-- `baseline_metrics.json` ✅ — both demo directories
-- `baseline_metrics.backup.json` ✅ — `realworld-example-app-Refactored/`
-- `review_report.md` ✅ — `realworld-example-app-Refactored/.codetuner/`
-- `tuned_metrics.json` ✅ — `realworld-example-app-Refactored/.codetuner/`
-- `refactor_report.md` ✅ — `realworld-example-app-Refactored/`
-
-`CODETUNER_REPORT.md`, `analysis_report.md`, and `regression_report.md` are produced by the master `/codetuner` orchestration workflow, which has not yet been run end-to-end on this demo project.
 
 </details>
 
 ---
 
-## Project Structure
+## Hackathon Evidence — 10 Bob Sessions
 
-```
-IBM-BOB-HACKATHON-ShipFast/
-├── .bob/skills/
-│   ├── codetuner/SKILL.md              # Master orchestration skill
-│   ├── codetuner-benchmark/SKILL.md    # Discovery + benchmark generation
-│   ├── codetuner-review/SKILL.md       # Performance + quality analysis
-│   ├── codetuner-refactor/SKILL.md     # Targeted optimization + validation
-│   └── codetuner-modernize/SKILL.md    # Stack modernization workflow
-│
-├── bob_sessions/                       # 8 screenshots of live IBM Bob development sessions
-│
-├── node-express-sequelize-nextjs-realworld-example-app/   # Original demo project
-│   ├── .codetuner/baseline_metrics.json
-│   └── benchmark.js
-│
-└── realworld-example-app-Refactored/                      # Post-optimization copy
-    ├── .codetuner/
-    │   ├── baseline_metrics.json
-    │   ├── baseline_metrics.backup.json
-    │   ├── review_report.md
-    │   └── tuned_metrics.json
-    └── refactor_report.md
-```
+Every artefact in this repository — the skills, the extension, the benchmark results, and the workflow design — was built inside IBM Bob 2.0. The [`bob_sessions/`](bob_sessions/) directory contains screenshots of all 10 live sessions.
 
----
+| # | Screenshot | Task | Bobcoins | Context used |
+|---|-----------|------|----------:|-------------|
+| 01 | `task01_create_benchmark_skill` | Authored `codetuner-benchmark` SKILL.md from scratch | 0.107 | 7% |
+| 02 | `task02_trigger_benchmark_skill` | Ran benchmark against the RealWorld project — generated `benchmark.js`, produced `baseline_metrics.json` | 1.29 | 20% |
+| 03 | `task03_create_review_refactor_skill` | Authored `codetuner-review` and `codetuner-refactor` skills via `/create-skill` | 0.327 | 11% |
+| 04 | `task04_trigger_codetuner_review` | Ran `codetuner-review` — 9 findings across 1,253 lines, `review_report.md` written | 0.863 | 16% |
+| 05 | `task05_trigger_codetuner_refactor` | Ran `codetuner-refactor` on CT-001 + CT-002 — 62.8% p50 reduction, **ACCEPTED** | 4.73 | 23% |
+| 06 | `task06_create_modernize_skill` | Authored `codetuner-modernize` skill via `/create-skill` | 0.687 | 10% |
+| 07 | `task07_create_codetuner_skill` | Authored master `codetuner` orchestration skill — pasted 279 lines of design context | 1.77 | 24% |
+| 08 | `task08_update_codetuner_skill` | Refined the master skill ("Update the existing master CodeTuner skill") | 0.497 | 17% |
+| 09 | `task09_fix_codetuner_skill` | Architecture decision: moved Review to run **after** Modernize so refactor operates on modernized code | 0.470 | 20% |
+| 10 | `task10_make_codetuner_extension` | Built the VS Code extension — sidebar panel, skill injection, metrics dashboard (33-line spec → full implementation) | **11.79** | **50%** |
 
-## Hackathon Evidence
+**Total: ~22.5 Bobcoins across 10 sessions.**
 
-Built for the **IBM BOB Hackathon — ShipFast track**.
-
-The [`bob_sessions/`](bob_sessions/) directory contains 8 screenshots of the live IBM Bob sessions used to design and build CodeTuner itself:
-
-| Session | What was built |
-|---------|---------------|
-| task01–02 | `codetuner-benchmark` created and triggered on the RealWorld project |
-| task03–05 | `codetuner-review` and `codetuner-refactor` created; review ran (9 findings); refactor ran (62.8% latency reduction, ACCEPTED) |
-| task06 | `codetuner-modernize` created |
-| task07–08 | Master `codetuner` orchestration skill created and refined |
-
-The entire workflow — design, implementation, and demonstration — was done inside IBM Bob 2.0.
-
----
-
-## Future Work
-
-**Remaining demo findings** (identified, not yet applied):
-
-- **CT-003** — Replace redundant `getAuthor()` call with already-loaded association — one-line fix
-- **CT-004** — Pre-fetch followed-user set to eliminate N+1 `hasFollow` per comment
-- **CT-005** — Add `LIMIT` to `Tag.findAll` — latent risk at scale
-- **CT-008** — Extract shared handler for duplicate `POST/DELETE /:article/favorite` pair
-
-**Not yet demonstrated end-to-end:**
-
-- Full `/codetuner` master orchestration run (parallel subagents → approval gate → regression gate → `CODETUNER_REPORT.md`)
-- `codetuner-modernize` execution against the RealWorld project (Node.js 14, Express 4.13, TypeScript 4.5 — all upgradable)
-- CI integration wrapping the regression gate in a GitHub Actions workflow
+The extension session (task 10) consumed the most context (135.6k / 270k) and Bobcoins — it produced [`src/extension.ts`](src/extension.ts), [`src/ControlPanelProvider.ts`](src/ControlPanelProvider.ts), [`package.json`](package.json) manifest, and [`media/zap.svg`](media/zap.svg) in a single session from a 33-line requirements spec.
