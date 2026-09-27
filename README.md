@@ -196,7 +196,9 @@ Approve PERF-001 and QUALITY-001. Reject MODERN-001 for now.
 
 ## Demo Results
 
-The skills were validated on a real production-style Node.js codebase:
+### Demo 1 — RealWorld (Node.js + Sequelize + Next.js)
+
+The standalone skill chain was validated on a real production-style Node.js codebase:
 
 > **Original repo:** https://github.com/cirosantilli/node-express-sequelize-nextjs-realworld-example-app
 
@@ -247,6 +249,66 @@ The standalone skill chain (`codetuner-benchmark` → `codetuner-review` → `co
 | Throughput | 16.0 RPS | 41.6 RPS | ↑ 160% |
 | DB queries / page | ~41 | ~2 | ↓ ~95% (est.) |
 | Tests passing | 4 / 4 | 4 / 4 | No regression |
+
+**Classification: `ACCEPTED`**
+
+---
+
+### Demo 2 — todos-express-sqlite (Express + SQLite)
+
+The **full master `codetuner` skill** was run end-to-end against a small but realistic Express + SQLite todo app:
+
+> **Original repo:** https://github.com/jaredhanson/todos-express-sqlite
+> **Demo directory:** [`todos-express-sqlite/`](todos-express-sqlite/)
+
+**Stack:** Node.js, Express 4.x, EJS templates, SQLite via `sqlite3` driver (no ORM), 8 HTTP handlers.
+
+#### Initial Baseline (before any changes)
+
+| Route | p50 | p95 | p99 | Throughput |
+|-------|----:|----:|----:|-----------:|
+| `GET /` | 8 ms | 10 ms | 13 ms | 1,211 rps |
+| `GET /active` | 8 ms | 10 ms | 11 ms | 1,244 rps |
+| `GET /completed` | 8 ms | 10 ms | 11 ms | 1,262 rps |
+
+#### Modernization (14 findings, all approved)
+
+Key changes applied by `codetuner-modernize`:
+
+| What | Finding |
+|------|---------|
+| Express 4.16.4 → 4.22.3, EJS 2.6.2 → 3.1.10, debug 2.6.9 → 4.4.3, 4 more packages | MODERN-002–008 |
+| Removed `mkdirp`; replaced with native `fs.mkdirSync` | MODERN-009 |
+| Callback-based DB layer refactored to `async/await` | MODERN-012 |
+| Added `helmet` security middleware | MODERN-014 |
+| Added ESLint flat config, Prettier, Mocha test scaffold | MODERN-013 |
+| Pinned Node.js to v24.x LTS via `.nvmrc` | MODERN-001 |
+
+Modernization alone delivered a **~50% throughput improvement** before any code-level refactoring.
+
+#### Refactor (14 findings, all approved)
+
+Key changes applied by `codetuner-refactor`:
+
+| What | Finding |
+|------|---------|
+| SQL `WHERE completed = ?` replaces JS in-memory filter | PERF-002 |
+| `LIMIT 1000` on all `SELECT *` queries | PERF-001 |
+| `CREATE INDEX idx_todos_completed` on `completed` column | PERF-003 |
+| TTL cache with write invalidation (`todosCache`) | PERF-006 |
+| `app.set('view cache', true)` — eliminates per-request EJS parse | PERF-005 |
+| Single `completedToDb()`, `redirectPath()`, `asyncHandler()`, `safeFilter()` helpers | QUALITY-001,003,005,006 |
+| `trimTitle` middleware; EJS `_filter_input.ejs` partial | QUALITY-002,007 |
+
+#### Final Results (original baseline → post-refactor)
+
+| Route | Baseline p50 | Tuned p50 | Baseline p95 | Tuned p95 | Throughput gain |
+|-------|------------:|----------:|-------------:|----------:|----------------:|
+| `GET /` | 8 ms | **4 ms** | 10 ms | **5 ms** | **+98%** |
+| `GET /active` | 8 ms | **3 ms** | 10 ms | **4 ms** | **+138%** |
+| `GET /completed` | 8 ms | **3 ms** | 10 ms | **3 ms** | **+187%** |
+
+**Accepted changes:** 14 · **Regressions:** 0 · **Tests:** 2/2 pass · **Lint:** clean
 
 **Classification: `ACCEPTED`**
 
